@@ -17,18 +17,13 @@
 #include <TFile.h>
 #include <TTree.h>
 #include <TNamed.h>
-#include <boost/optional.hpp>
-
-// #include <chrono>
 
 
-// using namespace std::chrono;
+
 
 #define MAX_TNAMED_LENGTH 1024
-#define BATCH_SIZE 1000000  // Number of entries to process before writing
 
 typedef std::vector<std::string> FileList;
-// static time_point time1 = high_resolution_clock::now();
 
 void printHelp() {
     std::cout << "Usage: program [options]\n"
@@ -50,6 +45,13 @@ void GetDescription(const std::string& name,
     }
 
     out += (type == XCDF_UNSIGNED_INTEGER) ? "/l" : (type == XCDF_SIGNED_INTEGER) ? "/L" : "/D";
+//     if (type == XCDF_UNSIGNED_INTEGER) {
+//     out += "/l";
+//   } else if (type == XCDF_SIGNED_INTEGER) {
+//     out += "/L";
+//   } else {
+//     out += "/D";
+//   }
 }
 
 class SetBranchAddressVisitor {
@@ -84,7 +86,6 @@ int main(int argc, char** argv) {
 
     std::string outputFile;
     bool Comment = false;
-    boost::optional<SetBranchAddressVisitor> setBranchAddressVisitor;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
         if (arg == "-h" || arg == "--help") {
@@ -134,7 +135,7 @@ int main(int argc, char** argv) {
                 std::string description;
                 GetDescription(it->name_, it->parentName_, description, it->type_);
                 out->Branch(it->name_.c_str(), static_cast<char*>(nullptr), description.c_str());
-                // std::cout << "Creating Branch: " << it->name_.c_str() << " \"" << description.c_str() << "\"" << std::endl;
+                std::cout << "Creating Branch: " << it->name_.c_str() << " \"" << description.c_str() << "\"" << std::endl;
             }
             if(Comment){
                 for (std::vector<std::string>::const_iterator  it = xcdfile.CommentsBegin(); it != xcdfile.CommentsEnd(); ++it) {
@@ -149,17 +150,17 @@ int main(int argc, char** argv) {
             }else{
                 std::cout<<"Abandon Comments"<<std::endl;
             }
-            setBranchAddressVisitor.emplace(out);
 
         }
 
 
-            xcdfile.ApplyFieldVisitor(*setBranchAddressVisitor);
-            // Read and process entries
-            while (xcdfile.Read()) {
-                out->Fill();
-                entryCount++;
-            }
+        SetBranchAddressVisitor setBranchAddressVisitor(out);
+        // Read and process entries
+        while (xcdfile.Read()) {
+            xcdfile.ApplyFieldVisitor(setBranchAddressVisitor);
+            out->Fill();
+            entryCount++;
+        }
         xcdfile.Close();
     }
 
